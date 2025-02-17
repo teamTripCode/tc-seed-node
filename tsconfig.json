@@ -16,6 +16,9 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
   }
 }

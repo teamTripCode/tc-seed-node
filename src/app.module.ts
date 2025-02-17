@@ -10,6 +10,8 @@ import { DiscoveryModule } from './discovery/discovery.module';
 import { RedisModule } from './redis/redis.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SignatureModule } from './signature/signature.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [

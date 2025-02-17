@@ -1,6 +1,4 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { CreateRediDto } from './dto/create-redi.dto';
-import { UpdateRediDto } from './dto/update-redi.dto';
 import { createClient, RedisClientType } from 'redis';
 
 @Injectable()
