@@ -82,6 +82,8 @@ export class HealthService {
       const memInfo = await mem.info();
       const memoryUsage = 100 - memInfo.freeMemPercentage;
 
+      this.logger.debug(`CPU Usage: ${cpuUsage}, Memory Usage: ${memoryUsage}`);
+
       // Actualizar información adicional
       this.metrics.systemInfo.freeMemory = memInfo.freeMemMb;
 

@@ -22,6 +22,9 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private logger = new Logger(P2PGateway.name);
 
+  private lastFailoverTime = 0;
+  private readonly FAIL_OVER_COOLDOWN = 300000; // 5 minutos
+
   constructor(
     private readonly redis: RedisService,
     private readonly signature: SignatureService,
@@ -143,8 +146,8 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Se obtiene el estado de salud actual.
     const health = this.healthService.isOk();
     // Umbrales definidos para considerar el sistema como saludable.
-    const cpuThreshold = 80; // 80%
-    const memoryThreshold = 80; // 80%
+    const cpuThreshold = 90; // 80%
+    const memoryThreshold = 90; // 80%
 
     const cpuUsage = health.metrics.cpu;
     const memoryUsage = health.metrics.memory;
@@ -158,8 +161,15 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Inicia el proceso de failover en caso de detectar problemas de salud.
   private async initiateFailover() {
+    const currentTime = Date.now();
+    if (currentTime - this.lastFailoverTime < this.FAIL_OVER_COOLDOWN) {
+      this.logger.warn('Failover ignorado debido al enfriamiento.');
+      return;
+    }
+
+    this.lastFailoverTime = currentTime;
     this.logger.warn('Iniciando failover debido a problemas de salud detectados.');
-    await this.server.emit('FAILOVER_INITIATED');
+    this.server.emit('FAILOVER_INITIATED');
     await this.transferActiveConnections();
     await this.syncState();
   }
