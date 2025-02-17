@@ -14,6 +14,9 @@ export class DiscoveryService {
   private readonly PEER_CLEANUP_INTERVAL = 300000; // 5 minutos
   private readonly MAX_PEERS_SHARE = 10;
 
+  private readonly MIN_SCORE = -100;
+  private readonly MAX_SCORE = 100;
+
   constructor(private readonly redis: RedisService) { }
 
   async getPeers() {
@@ -103,5 +106,22 @@ export class DiscoveryService {
 
     await this.redis.hSet('peers', ip, JSON.stringify(peerInfo));
     this.logger.log(`Registrado nuevo peer: ${ip}`);
+  }
+
+  // Reputation peer methods
+  async updatePeerScore(ip: string, behavior: 'good' | 'bad'): Promise<void> {
+    const peerDataRaw = await this.redis.hGet('peers', ip);
+    if (!peerDataRaw) return;
+
+    const peer = JSON.parse(peerDataRaw);
+    peer.reputation = peer.reputation || { score: 0, lastUpdate: Date.now(), violations: 0, uptime: 0 };
+
+    peer.reputation.score += behavior === 'good' ? 1 : -5;
+    peer.reputation.score = Math.max(this.MIN_SCORE, Math.min(this.MAX_SCORE, peer.reputation.score));
+    peer.reputation.lastUpdate = Date.now();
+
+    if (behavior === 'bad') peer.reputation.violations += 1;
+
+    await this.redis.hSet('peers', ip, JSON.stringify(peer));
   }
 }

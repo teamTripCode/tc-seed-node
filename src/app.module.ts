@@ -10,8 +10,8 @@ import { DiscoveryModule } from './discovery/discovery.module';
 import { RedisModule } from './redis/redis.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SignatureModule } from './signature/signature.module';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
+import { BackupModule } from './backup/backup.module';
+import { DynamicConfigModule } from './dynamic-config/dynamic-config.module';
 
 @Module({
   imports: [
@@ -23,6 +23,9 @@ import { join } from 'path';
     RedisModule,
     HeartbeatModule,
     SignatureModule,
+    BackupModule,
+    ConfigModule,
+    DynamicConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService, P2PGateway],

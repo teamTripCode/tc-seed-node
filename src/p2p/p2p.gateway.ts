@@ -1,13 +1,15 @@
 import { Logger } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   WebSocketGateway,
-  WebSocketServer
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RedisService } from 'src/redis/redis.service';
 import { SignatureService } from 'src/signature/signature.service';
+import { HealthService } from 'src/health/health.service';
 
 @WebSocketGateway(Number(process.env.WS_PORT) || 8081, {
   cors: { origin: '*', methods: ['GET', 'POST'], credentials: true },
@@ -23,6 +25,7 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly redis: RedisService,
     private readonly signature: SignatureService,
+    private readonly healthService: HealthService,
   ) { }
 
   async handleConnection(client: Socket) {
@@ -47,7 +50,7 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const nodeData = JSON.stringify({ role, lastHeartbeat: currentTime });
       const signature = this.signature.signMessage(nodeData);
 
-      // Store peer info in Redis hash
+      // Guardar la información del nodo en Redis
       await this.redis.hSet(
         'peers',
         clientIP,
@@ -59,19 +62,19 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }),
       );
 
-      // Get all peers
+      // Obtener todos los peers
       const peersData = await this.redis.hGetAll('peers');
 
-      // Convert hash to object format for consistency
+      // Convertir el hash a un objeto para mantener consistencia
       const peers = Object.entries(peersData).reduce((acc, [ip, data]) => {
         acc[ip] = JSON.parse(data).role;
         return acc;
       }, {});
 
-      // Notify the new client about existing peers
+      // Notificar al nuevo cliente sobre los peers existentes
       client.emit('peerDiscovery', { peers });
 
-      // Notify existing clients about the new peer
+      // Notificar a los clientes existentes sobre el nuevo peer
       client.broadcast.emit('peerDiscovery', { newPeer: { ip: clientIP, role } });
 
       this.logger.log(`Nodo conectado: ${clientIP} con rol: ${role}`);
@@ -85,10 +88,10 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Nodo desconectado: ${clientIP}`);
 
     try {
-      // Remove peer from Redis hash
+      // Remover el peer del hash en Redis
       await this.redis.hDel('peers', clientIP);
 
-      // Notify all clients about disconnected peer
+      // Notificar a todos los clientes sobre el peer desconectado
       this.server.emit('peerDiscovery', { disconnectedPeer: clientIP });
 
       this.logger.log(`✅ Nodo eliminado: ${clientIP}`);
@@ -99,7 +102,7 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async getPeers(): Promise<Record<string, string>> {
     try {
-      // Get all peers from Redis hash
+      // Obtener todos los peers de Redis
       return await this.redis.hGetAll('peers');
     } catch (error) {
       this.logger.error(`Error al obtener peers: ${error.message}`);
@@ -123,5 +126,55 @@ export class P2PGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (error) {
       this.logger.error(`Error al procesar heartbeat de ${clientIP}: ${error.message}`);
     }
+  }
+
+  // Método para chequear la salud del sistema cada 5 segundos.
+  @Interval(5000)
+  async checkHealth() {
+    const healthStatus = await this.performHealthCheck();
+
+    if (!healthStatus.isHealthy) {
+      await this.initiateFailover();
+    }
+  }
+
+  // Utiliza HealthService para determinar si el sistema está saludable.
+  private async performHealthCheck(): Promise<{ isHealthy: boolean; details: any }> {
+    // Se obtiene el estado de salud actual.
+    const health = this.healthService.isOk();
+    // Umbrales definidos para considerar el sistema como saludable.
+    const cpuThreshold = 80; // 80%
+    const memoryThreshold = 80; // 80%
+
+    const cpuUsage = health.metrics.cpu;
+    const memoryUsage = health.metrics.memory;
+
+    const isHealthy = cpuUsage < cpuThreshold && memoryUsage < memoryThreshold;
+
+    this.logger.debug(`Health Check - CPU: ${cpuUsage}%, Memoria: ${memoryUsage}%, Healthy: ${isHealthy}`);
+
+    return { isHealthy, details: health };
+  }
+
+  // Inicia el proceso de failover en caso de detectar problemas de salud.
+  private async initiateFailover() {
+    this.logger.warn('Iniciando failover debido a problemas de salud detectados.');
+    await this.server.emit('FAILOVER_INITIATED');
+    await this.transferActiveConnections();
+    await this.syncState();
+  }
+
+  // Simula la transferencia de conexiones activas a otro nodo.
+  private async transferActiveConnections() {
+    this.logger.log('Transfiriendo conexiones activas...');
+    // Implementa la lógica para que cada cliente se reconecte a un nuevo endpoint.
+    this.server.emit('TRANSFER_CONNECTIONS', { message: 'Por favor, reconéctate a un nuevo servidor.' });
+  }
+
+  // Sincroniza el estado actual (por ejemplo, la lista de peers) con el nuevo nodo principal.
+  private async syncState() {
+    this.logger.log('Sincronizando estado con el nuevo nodo principal...');
+    const peers = await this.getPeers();
+    this.server.emit('STATE_SYNC', { peers });
   }
 }
