@@ -8,26 +8,33 @@ export class SignatureService {
   private readonly logger = new Logger(SignatureService.name);
   private privateKey: string;
   private publicKey: string;
+  private readonly certsPath: string;
 
   constructor() {
+    // Use environment variable or default path
+    this.certsPath = process.env.CERTS_PATH || path.join(process.cwd(), 'certs', 'tls');
+    this.logger.log(`Loading certificates from: ${this.certsPath}`);
+    
     try {
-      // Cargar claves para firmas digitales
+      // Load keys for digital signatures
       this.privateKey = fs.readFileSync(
-        path.join(process.cwd(), 'certs', 'signature', 'private-key.pem'),
+        path.join(this.certsPath, 'private-key.pem'),
         'utf8'
       );
       this.publicKey = fs.readFileSync(
-        path.join(process.cwd(), 'certs', 'signature', 'public-key.pem'),
+        path.join(this.certsPath, 'public-key.pem'),
         'utf8'
       );
+      
+      this.logger.log('Digital signature keys loaded successfully');
     } catch (error) {
-      this.logger.error(`Error al cargar las claves de firma: ${error.message}`);
-      throw new Error('No se pudieron cargar las claves de firma digital');
+      this.logger.error(`Error loading signature keys: ${error.message}`);
+      throw new Error('Could not load digital signature keys');
     }
   }
 
   /**
-   * Firma un mensaje usando la clave privada
+   * Sign a message using the private key
    */
   signMessage(message: string): string {
     try {
@@ -36,13 +43,13 @@ export class SignatureService {
       sign.end();
       return sign.sign(this.privateKey, 'base64');
     } catch (error) {
-      this.logger.error(`Error al firmar mensaje: ${error.message}`);
-      throw new Error('No se pudo firmar el mensaje');
+      this.logger.error(`Error signing message: ${error.message}`);
+      throw new Error('Could not sign the message');
     }
   }
 
   /**
-   * Verifica la firma de un mensaje usando la clave pública del remitente
+   * Verify a message signature using the sender's public key
    */
   verifySignature(message: string, signature: string, senderPublicKey: string): boolean {
     try {
@@ -51,13 +58,13 @@ export class SignatureService {
       verify.end();
       return verify.verify(senderPublicKey, signature, 'base64');
     } catch (error) {
-      this.logger.error(`Error al verificar firma: ${error.message}`);
+      this.logger.error(`Error verifying signature: ${error.message}`);
       return false;
     }
   }
 
   /**
-   * Obtiene la clave pública para compartir con otros nodos
+   * Get the public key to share with other nodes
    */
   getPublicKey(): string {
     return this.publicKey;

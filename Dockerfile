@@ -30,20 +30,11 @@ ENV NODE_ENV=production \
     PORT=8080 \
     HTTP_PORT=8080 \
     WS_PORT=8081 \
-    REDIS_URL=redis://localhost:6379
+    REDIS_URL=redis://localhost:6379 \
+    CERTS_PATH=/app/certs/tls
 
-# Generamos certificados TLS
-RUN apk add --no-cache openssl && \
-    mkdir -p certs/tls && \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout certs/tls/private-key.pem \
-    -out certs/tls/public-key.pem \
-    -subj "/CN=localhost/O=TripCode/C=US" && \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout certs/tls/ca-key.pem \
-    -out certs/tls/ca-cert.pem \
-    -subj "/CN=TripCode-CA/O=TripCode/C=US" && \
-    apk del openssl
+# Creamos el directorio para los certificados
+RUN mkdir -p /app/certs/tls
 
 # Exponemos los puertos necesarios
 EXPOSE 8080 8081

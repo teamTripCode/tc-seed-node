@@ -1,0 +1,29 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+build:
+  artifacts:
+  - image: foultrip/seed-node-tripcode
+    context: .
+    docker:
+      dockerfile: Dockerfile
+    sync:
+      manual:
+      - src: 'src/**/*.ts'
+        dest: '/app/src'
+      - src: 'src/**/*.js'
+        dest: '/app/src'
+manifests:
+  rawYaml:
+  - ../k8s/seed/seed-node-deployment.yaml
+  - ../k8s/seed/seed-node-service.yaml
+deploy:
+  kubectl: {}
+portForward:
+- resourceType: service
+  resourceName: seed-node-service
+  port: 3000
+  localPort: 3000
+- resourceType: service
+  resourceName: seed-node-service
+  port: 4000
+  localPort: 4000
