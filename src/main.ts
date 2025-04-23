@@ -56,9 +56,14 @@ async function bootstrap() {
       console.log('Continuing without Redis adapter');
     }
 
-    // Start the server
+    // Start the server - prodccion
     const port = process.env.PORT || 8080;
     await app.listen(port, '0.0.0.0');
+
+    //Start the server - development
+    // const port = 3000;
+    // await app.listen(port);
+  
     console.log(`Application is running on port ${port}`);
     
   } catch (error) {
